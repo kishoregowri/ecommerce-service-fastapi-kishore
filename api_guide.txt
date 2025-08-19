@@ -1,0 +1,141 @@
+API Guide
+
+Headers
+
+-   X-Role: admin or user (default = user)
+-   X-User-Id: required for cart endpoints, identifies the user
+
+------------------------------------------------------------------------
+
+Product APIs
+
+List Products (public)
+
+GET /api/products?search=<q>&page=<n>&page_size=<m>
+
+Example:
+
+    http://127.0.0.1:8000/api/products?search=Mint&page=1&page_size=5
+
+Response:
+
+    {
+      "count": 1,
+      "next": null,
+      "previous": null,
+      "results": [
+        {"id":1,"sku":"orbit-10","name":"Orbit Gum 10pcs","price":"25.00","currency":"INR","created_at":"..."}
+      ]
+    }
+
+Create Product (admin only)
+
+POST /api/products
+
+    {
+      "sku":"mint-5",
+      "name":"Mint Pack",
+      "price":"10.50",
+      "currency":"INR"
+    }
+
+Update Product (admin only)
+
+PUT /api/products/{id}
+
+    {
+      "sku":"mint-5",
+      "name":"Mint Pack Updated",
+      "price":"11.00",
+      "currency":"INR"
+    }
+
+Delete Product (admin only)
+
+DELETE /api/products/{id}
+
+Response: 204 No Content
+
+------------------------------------------------------------------------
+
+Cart APIs (user role)
+
+Add Item
+
+POST /api/cart/items
+
+    { "sku":"mint-5", "qty":2 }
+
+-   Adds/increments qty of SKU.
+
+Set Item Qty (idempotent)
+
+PUT /api/cart/items/{sku}
+
+    { "qty":3 }
+
+Response:
+
+    {
+      "detail": "set",
+      "sku": "mint-5",
+      "qty": 3
+    }
+
+-   Sets qty exactly. qty=0 removes item.
+
+Remove Item
+
+DELETE /api/cart/items/{sku}
+
+View Cart
+
+GET /api/cart
+
+Response:
+
+    {
+      "items":[
+        {"sku":"orbit-10","name":"Orbit Gum 10pcs","qty":2,"unit_price":"25.00","line_total":"50.00"}
+      ],
+      "subtotal":"50.00",
+      "currency":"INR",
+      "normalization":"orbit-10:2",
+      "signature":"<sha256 hex>"
+    }
+
+------------------------------------------------------------------------
+
+Cart Signature
+
+-   Items normalized by merging duplicate SKUs and sorting by SKU.
+-   Format: "sku:qty|sku2:qty2"
+-   Hash: SHA-256 of normalization string.
+
+------------------------------------------------------------------------
+
+Example cURL
+
+    # List products
+    curl http://127.0.0.1:8000/api/products
+
+    # Create product (admin)
+    curl -X POST http://127.0.0.1:8000/api/products   -H "Content-Type: application/json" -H "X-Role: admin"   -d '{"sku":"mint-5","name":"Mint Pack","price":"10.50","currency":"INR"}'
+
+    # Update product (admin)
+    curl -X PUT http://127.0.0.1:8000/api/products/1   -H "Content-Type: application/json" -H "X-Role: admin"   -d '{"sku":"mint-5","name":"Mint Pack Updated","price":"11.00","currency":"INR"}'
+
+    # Delete product (admin)
+    curl -X DELETE http://127.0.0.1:8000/api/products/1 -H "X-Role: admin"
+
+    # Add to cart (user)
+    curl -X POST http://127.0.0.1:8000/api/cart/items   -H "Content-Type: application/json" -H "X-Role: user" -H "X-User-Id: u1"   -d '{"sku":"orbit-10","qty":2}'
+
+    # Set qty (user)
+    curl -X PUT http://127.0.0.1:8000/api/cart/items/orbit-10   -H "Content-Type: application/json" -H "X-Role: user" -H "X-User-Id: u1"   -d '{"qty":3}'
+
+    # Remove item (user)
+    curl -X DELETE http://127.0.0.1:8000/api/cart/items/orbit-10   -H "X-Role: user" -H "X-User-Id: u1"
+
+    # Get cart
+    curl http://127.0.0.1:8000/api/cart -H "X-Role: user" -H "X-User-Id: u1"
